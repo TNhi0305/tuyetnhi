@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Đôi lời gửi anhpe</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      height: 100%; width: 100%;
+      overflow: hidden;
+      background-color: black;
+      font-family: Arial, sans-serif;
+      user-select: none;
+      touch-action: none;
+    }
+    #scene {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      perspective: 800px;
+      overflow: hidden;
+    }
+    #container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transform-origin: center center;
+      cursor: grab;
+    }
+    #container:active {
+      cursor: grabbing;
+    }
+    .item {
+      position: absolute;
+      left: 50%; top: 50%;
+      user-select: none;
+      pointer-events: none;
+      white-space: nowrap;
+      font-size: 18px;
+      will-change: transform, opacity;
+      transition: opacity 0.2s;
+      transform-origin: center center;
+    }
+    .heart {
+      font-size: 20px;
+    }
+
+    #twinkles {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 0;
+    }
+    .twinkle {
+      position: absolute;
+      color: rgb(255, 255, 255);
+      font-size: 6px;
+      opacity: 0.3;
+      animation: twinkleBlink 2s infinite alternate;
+      user-select: none;
+      pointer-events: none;
+    }
+    @keyframes twinkleBlink {
+      0% {opacity: 0.1;}
+      100% {opacity: 0.4;}
+    }
+  </style>
+</head>
+<body>
+
+  <div id="scene">
+    <div id="container"></div>
+  </div>
+
+  <div id="twinkles"></div>
+
+<script>
+  const twinklesCount = 80;
+  const twinklesContainer = document.getElementById('twinkles');
+  for (let i = 0; i < twinklesCount; i++) {
+    const t = document.createElement('div');
+    t.classList.add('twinkle');
+    t.textContent = '✦';
+    t.style.left = Math.random() * 100 + 'vw';
+    t.style.top = Math.random() * 100 + 'vh';
+    t.style.animationDuration = (1 + Math.random() * 2) + 's';
+    twinklesContainer.appendChild(t);
+  }
+
+  const messages = [
+    "N&D ❤️", "Yêu anh ❤️", "Mãi bên nhau nhé",
+    "Nhớ anh", "Mình cùng cố gắng anhpe nhé",
+    "Thương anhpe nhiều", "Moazzzz ❤️"
+  ];
+
+  const colors = [
+    "#ffffff", "#f5f5f5", "#e0e0e0", "#cccccc",
+    "#ffe6f0", "#ffb3d9", "#ff80bf", "#ff4da6", "#ff1a8c"
+  ];
+
+  const container = document.getElementById('container');
+  const itemCount = 70; // tăng số lượng phần tử để chữ rơi dày hơn
+  const radius = 200;
+  const items = [];
+
+  for (let i = 0; i < itemCount; i++) {
+    const div = document.createElement('div');
+    div.classList.add('item');
+
+    const color = colors[i % colors.length];
+    div.style.color = color;
+    div.style.textShadow = `0 0 10px ${color}, 0 0 20px ${color}`;
+
+    if (Math.random() < 0.3) {
+      div.textContent = "❤️";
+      div.classList.add('heart');
+    } else {
+      div.textContent = messages[Math.floor(Math.random() * messages.length)];
+    }
+
+    container.appendChild(div);
+
+    const phi = Math.acos(-1 + (2 * i) / itemCount);
+    const theta = Math.sqrt(itemCount * Math.PI) * phi;
+
+    items.push({
+      el: div,
+      phi,
+      theta,
+      baseX: radius * Math.cos(theta) * Math.sin(phi),
+      baseZ: radius * Math.sin(theta) * Math.sin(phi),
+      baseY: radius * Math.cos(phi),
+      offsetY: Math.random() * window.innerHeight,
+      speedY: 30 + Math.random() * 40
+    });
+  }
+
+  // ...phần còn lại giữ nguyên...
+  let rotationX = 0;
+  let rotationY = 0;
+  let baseScale = 1;
+  let zoomScale = 1;
+  let targetZoomScale = 1;
+  let lastTime = performance.now();
+
+  function lerp(start, end, t) {
+    return start + (end - start) * t;
+  }
+
+  function update(time = performance.now()) {
+    const delta = (time - lastTime) / 1000;
+    lastTime = time;
+
+    rotationX = Math.min(Math.max(rotationX, -90), 90);
+
+    const radX = rotationX * Math.PI / 180;
+    const radY = rotationY * Math.PI / 180;
+    const cosX = Math.cos(radX), sinX = Math.sin(radX);
+    const cosY = Math.cos(radY), sinY = Math.sin(radY);
+
+    zoomScale = lerp(zoomScale, targetZoomScale, 0.1);
+    const height = window.innerHeight;
+
+    for (const item of items) {
+      item.offsetY += item.speedY * delta;
+      if (item.offsetY > height + 50) item.offsetY = -50;
+
+      let x = item.baseX;
+      let y = item.baseY;
+      let z = item.baseZ;
+
+      let rx = x * cosY - z * sinY;
+      let rz = x * sinY + z * cosY;
+
+      let ry = y * cosX - rz * sinX;
+      rz = y * sinX + rz * cosX;
+
+      ry += item.offsetY - height / 2;
+
+      const perspective = 800;
+      const scale3d = perspective / (perspective + rz);
+      const totalScale = scale3d * baseScale * zoomScale;
+      const screenX = rx * totalScale;
+      const screenY = ry * totalScale;
+
+      const opacity = 0.5 + 0.5 * ((rz + radius) / (2 * radius));
+
+      item.el.style.transform = `
+        translate3d(${screenX}px, ${screenY}px, 0)
+        scale(${totalScale})
+        rotateX(${-rotationX}deg)
+        rotateY(${-rotationY}deg)
+      `;
+      item.el.style.opacity = opacity;
+      item.el.style.zIndex = Math.floor(opacity * 100);
+    }
+
+    requestAnimationFrame(update);
+  }
+  update();
+
+  let isDragging = false;
+  let dragStartX, dragStartY;
+  let dragStartRotX, dragStartRotY;
+
+  container.addEventListener('mousedown', e => {
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    dragStartRotX = rotationX;
+    dragStartRotY = rotationY;
+    targetZoomScale = 1.5;
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartX;
+    const dy = e.clientY - dragStartY;
+    rotationY = dragStartRotY + dx * 0.3;
+    rotationX = dragStartRotX + dy * 0.3;
+    rotationX = Math.min(Math.max(rotationX, -90), 90);
+  });
+
+  window.addEventListener('wheel', e => {
+    e.preventDefault();
+    baseScale -= e.deltaY * 0.0015;
+    baseScale = Math.min(Math.max(baseScale, 0.5), 3);
+  }, { passive: false });
+
+  // Touch hỗ trợ
+  let touchStartDist = 0;
+  let initialBaseScale = baseScale;
+  let singleTouchStartX = 0;
+  let singleTouchStartY = 0;
+  let singleTouchStartRotX = rotationX;
+  let singleTouchStartRotY = rotationY;
+  let isSingleTouch = false;
+
+  container.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      isSingleTouch = true;
+      singleTouchStartX = e.touches[0].clientX;
+      singleTouchStartY = e.touches[0].clientY;
+      singleTouchStartRotX = rotationX;
+      singleTouchStartRotY = rotationY;
+      targetZoomScale = 1.5;
+    } else if (e.touches.length === 2) {
+      isSingleTouch = false;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchStartDist = Math.hypot(dx, dy);
+      initialBaseScale = baseScale;
+    }
+  });
+
+  container.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (isSingleTouch && e.touches.length === 1) {
+      const dx = e.touches[0].clientX - singleTouchStartX;
+      const dy = e.touches[0].clientY - singleTouchStartY;
+      rotationY = singleTouchStartRotY + dx * 0.3;
+      rotationX = singleTouchStartRotX + dy * 0.3;
+      rotationX = Math.min(Math.max(rotationX, -90), 90);
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      baseScale = initialBaseScale * (dist / touchStartDist);
+      baseScale = Math.min(Math.max(baseScale, 0.5), 3);
+    }
+  }, { passive: false });
+
+  container.addEventListener('touchend', e => {
+    if (e.touches.length === 0) {
+      isSingleTouch = false;
+    }
+  });
+
+</script>
+
+</body>
+</html>
